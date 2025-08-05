@@ -41,11 +41,7 @@ function App() {
         
         const endpoints = [
           'getOverview',
-          'getProjectAnalysis', 
-          'getCostAnalysis',
-          'getResourceAnalysis',
-          'getPerformanceMetrics',
-          'getWorkActualAnalysis'
+          'getProjectAnalysis'
         ]
 
         const promises = endpoints.map(endpoint => 
@@ -58,11 +54,11 @@ function App() {
         
         setData({
           overview: results[0].success ? results[0].overview : null,
-          projectAnalysis: results[1].success ? results[1].analysis : null,
-          costAnalysis: results[2].success ? results[2].analysis : null,
-          resourceAnalysis: results[3].success ? results[3].analysis : null,
-          performanceMetrics: results[4].success ? results[4].metrics : null,
-          workActualAnalysis: results[5].success ? results[5].analysis : null,
+          projectAnalysis: results[1].success ? results[1] : null,
+          costAnalysis: null,
+          resourceAnalysis: null,
+          performanceMetrics: null,
+          workActualAnalysis: null,
           loading: false,
           error: results.some(r => !r.success) ? 'Some data failed to load' : null
         })
@@ -381,115 +377,213 @@ function ExecutiveSummary({ data }) {
   )
 }
 
-// Project Management Component
+// Project Management Component with Advanced Analytics
 function ProjectManagement({ data }) {
-  const { projectAnalysis, workActualAnalysis } = data
+  const { projectAnalysis, workActualAnalysis, overview } = data
 
-  if (!projectAnalysis) {
-    return <div className="text-center py-8">No project data available</div>
+  if (!projectAnalysis || !projectAnalysis.analysis) {
+    return <div className="text-center py-8">Loading project data...</div>
   }
+
+  // Enhanced project data with analytics
+  const projects = projectAnalysis.analysis.projects || []
+  const workActual = workActualAnalysis?.byJob || []
+  
+  const enhancedProjects = projects.map(project => {
+    const workData = workActual.find(w => w.jobName === project.jobName) || {}
+    const totalArea = project.plannedAreaM2 || 0
+    const actualArea = project.actualAreaCompleted || 0
+    const progressPercent = totalArea > 0 ? (actualArea / totalArea) * 100 : 0
+    
+    return {
+      ...project,
+      actualArea,
+      progressPercent,
+      costPerM2: totalArea > 0 ? (project.actualCost || 0) / totalArea : 0,
+      hoursPerM2: totalArea > 0 ? (project.totalHours || 0) / totalArea : 0,
+      costPerWorker: (project.workersCount || 0) > 0 ? (project.actualCost || 0) / project.workersCount : 0,
+      hoursPerWorker: (project.workersCount || 0) > 0 ? (project.totalHours || 0) / project.workersCount : 0,
+      budgetVarianceAmount: (project.actualCost || 0) - (project.budget || 0)
+    }
+  })
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Project Management</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Advanced Project Analytics</h2>
         <Badge variant="outline">
-          {projectAnalysis.projects?.length || 0} Projects
+          {projects.length} Projects
         </Badge>
       </div>
 
-      {/* Project Overview Cards */}
+      {/* Budget vs Cost Analysis Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Budget vs Actual Cost Analysis</CardTitle>
+          <CardDescription>Budget Plan เทียบกับ Manhour Cost + Material Cost</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={enhancedProjects}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="jobName" />
+              <YAxis />
+              <Tooltip formatter={(value) => `฿${value?.toLocaleString() || 0}`} />
+              <Bar dataKey="budget" fill="#8884d8" name="Budget Plan" />
+              <Bar dataKey="actualCost" fill="#82ca9d" name="Actual Cost" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Progress Tracking Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Area Completion Progress</CardTitle>
+          <CardDescription>Total Area M² เทียบกับ Actual Area M² - Progress Tracking</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={enhancedProjects}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="jobName" />
+              <YAxis />
+              <Tooltip formatter={(value) => `${value?.toFixed(1) || 0} ตร.ม.`} />
+              <Bar dataKey="plannedAreaM2" fill="#ffc658" name="Total Area M²" />
+              <Bar dataKey="actualAreaCompleted" fill="#ff7300" name="Actual Area M²" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Performance Metrics Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance Metrics ต่อคน/ตร.ม./วัน</CardTitle>
+          <CardDescription>ค่าเฉลี่ยการทำงานแยกตามโปรเจค</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Project</th>
+                  <th className="text-right p-2">Progress %</th>
+                  <th className="text-right p-2">Cost/M²</th>
+                  <th className="text-right p-2">Hours/M²</th>
+                  <th className="text-right p-2">Cost/Worker</th>
+                  <th className="text-right p-2">Hours/Worker</th>
+                  <th className="text-right p-2">Budget Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {enhancedProjects.map((project, index) => (
+                  <tr key={index} className="border-b hover:bg-gray-50">
+                    <td className="p-2 font-medium">{project.jobName}</td>
+                    <td className="p-2 text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        <span className={`${project.progressPercent >= 100 ? 'text-green-600' : 'text-blue-600'}`}>
+                          {project.progressPercent.toFixed(1)}%
+                        </span>
+                        {project.progressPercent >= 100 && <CheckCircle className="w-4 h-4 text-green-600" />}
+                      </div>
+                    </td>
+                    <td className="p-2 text-right">฿{project.costPerM2.toFixed(0)}</td>
+                    <td className="p-2 text-right">{project.hoursPerM2.toFixed(1)} ชม.</td>
+                    <td className="p-2 text-right">฿{project.costPerWorker.toLocaleString()}</td>
+                    <td className="p-2 text-right">{project.hoursPerWorker.toFixed(1)} ชม.</td>
+                    <td className={`p-2 text-right font-medium ${project.budgetVarianceAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {project.budgetVarianceAmount > 0 ? '+' : ''}฿{(project.budgetVarianceAmount || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Project Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {projectAnalysis.projects?.map((project, index) => (
+        {enhancedProjects.map((project, index) => (
           <Card key={index} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg">{project.jobName}</CardTitle>
                 <Badge 
-                  variant={project.status === 'Completed' ? 'default' : 'secondary'}
+                  variant={project.status ? 'default' : 'secondary'}
                   className={
-                    project.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                    project.status === 'In-progress' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
+                    project.status ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                   }
                 >
-                  {project.status}
+                  {project.status ? 'Active' : 'Pending'}
                 </Badge>
               </div>
-              <CardDescription>Job #{project.jobNum}</CardDescription>
+              <CardDescription>
+                Progress: {project.progressPercent.toFixed(1)}% ({project.actualAreaCompleted}/{project.plannedAreaM2} ตร.ม.)
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Budget vs Actual */}
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Budget vs Actual</span>
-                  <span className={project.budgetVariance > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {project.budgetVariance > 0 ? '+' : ''}{project.budgetVariance}%
-                  </span>
-                </div>
-                <div className="text-xs text-gray-500">
-                  ฿{project.actualCost?.toLocaleString()} / ฿{project.budget?.toLocaleString()}
-                </div>
-              </div>
-
-              {/* Progress */}
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Actual Progress</span>
-                  <span>{project.actualProgress}%</span>
-                </div>
-                <Progress value={project.actualProgress} className="h-2" />
-                <div className="text-xs text-gray-500 mt-1">
-                  {project.actualAreaCompleted} / {project.plannedAreaM2} ตร.ม.
-                </div>
-              </div>
-
-              {/* Workers & Hours */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <div className="font-medium">{project.workersCount} Workers</div>
-                  <div className="text-gray-500">{project.totalHours} hours</div>
+                  <p className="text-muted-foreground">Budget</p>
+                  <p className="font-semibold">฿{project.budget?.toLocaleString() || 'N/A'}</p>
                 </div>
                 <div>
-                  <div className="font-medium">฿{project.costPerM2}/ตร.ม.</div>
-                  <div className="text-gray-500">Cost per M²</div>
+                  <p className="text-muted-foreground">Actual Cost</p>
+                  <p className="font-semibold">฿{project.actualCost?.toLocaleString() || '0'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Workers</p>
+                  <p className="font-semibold">{project.workersCount || 0} คน</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Hours</p>
+                  <p className="font-semibold">{project.totalHours || 0} ชม.</p>
                 </div>
               </div>
+              
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Area Progress</span>
+                  <span>{project.progressPercent.toFixed(1)}%</span>
+                </div>
+                <Progress value={Math.min(project.progressPercent, 100)} className="h-2" />
+              </div>
+              
+              {/* Budget Usage */}
+              {project.budget && project.actualCost && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Budget Usage</span>
+                    <span>{((project.actualCost / project.budget) * 100).toFixed(1)}%</span>
+                  </div>
+                  <Progress value={Math.min((project.actualCost / project.budget) * 100, 100)} className="h-2" />
+                </div>
+              )}
+              
+              {/* Performance Metrics */}
+              <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2 rounded">
+                <div>
+                  <p className="text-muted-foreground">Cost/M²</p>
+                  <p className="font-semibold">฿{project.costPerM2.toFixed(0)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Hours/M²</p>
+                  <p className="font-semibold">{project.hoursPerM2.toFixed(1)} ชม.</p>
+                </div>
+              </div>
+              
+              {project.budgetVarianceAmount !== 0 && (
+                <div className={`text-sm p-2 rounded ${project.budgetVarianceAmount > 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                  Variance: {project.budgetVarianceAmount > 0 ? '+' : ''}฿{project.budgetVarianceAmount.toLocaleString()}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {/* Project Ranking */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Project Performance Ranking</CardTitle>
-          <CardDescription>Ranked by actual progress completion</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {projectAnalysis.ranking?.slice(0, 5).map((project, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-blue-600">#{index + 1}</span>
-                  </div>
-                  <div>
-                    <div className="font-medium">{project.jobName}</div>
-                    <div className="text-sm text-gray-500">
-                      {project.workersCount} workers • ฿{project.costPerM2}/ตร.ม.
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium text-green-600">{project.actualProgress}%</div>
-                  <div className="text-sm text-gray-500">Progress</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
