@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Button } from '@/components/ui/button.jsx'
@@ -58,11 +58,11 @@ function App() {
         
         setData({
           overview: results[0].success ? results[0].overview : null,
-          projectAnalysis: results[1].success ? results[1].analysis : null,
-          costAnalysis: results[2].success ? results[2].analysis : null,
-          resourceAnalysis: results[3].success ? results[3].analysis : null,
-          performanceMetrics: results[4].success ? results[4].metrics : null,
-          workActualAnalysis: results[5].success ? results[5].analysis : null,
+          projectAnalysis: results[1].success ? results[1].projectAnalysis : null,
+          costAnalysis: results[2].success ? results[2].costAnalysis : null,
+          resourceAnalysis: results[3].success ? results[3].resourceAnalysis : null,
+          performanceMetrics: results[4].success ? results[4].performanceMetrics : null,
+          workActualAnalysis: results[5].success ? results[5].workActualAnalysis : null,
           loading: false,
           error: results.some(r => !r.success) ? 'Some data failed to load' : null
         })
@@ -600,18 +600,11 @@ function CostAnalysis({ data }) {
     return <div className="text-center py-8">No cost data available</div>
   }
 
-  const costByJobData = Object.entries(costAnalysis.byJob || {}).map(([job, costs]) => ({
-    job: job,
-    labor: costs.labor || 0,
-    material: costs.material || 0,
-    total: costs.total || 0
-  }))
-
-  const monthlyTrends = Object.entries(costAnalysis.trends || {}).map(([month, costs]) => ({
-    month: month,
-    labor: costs.labor || 0,
-    material: costs.material || 0,
-    total: costs.total || 0
+  const costByJobData = (costAnalysis.byJob || []).map(job => ({
+    job: job.jobName,
+    labor: job.laborCost || 0,
+    material: job.materialCost || 0,
+    total: job.totalCost || 0
   }))
 
   return (
@@ -619,7 +612,7 @@ function CostAnalysis({ data }) {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Cost Analysis</h2>
         <Badge variant="outline">
-          ฿{costAnalysis.summary?.totalCost?.toLocaleString() || 0} Total
+          ฿{costAnalysis.summary?.totalActualCost?.toLocaleString() || 0} Total
         </Badge>
       </div>
 
@@ -631,10 +624,10 @@ function CostAnalysis({ data }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              ฿{costAnalysis.breakdown?.labor?.amount?.toLocaleString() || 0}
+              ฿{costAnalysis.summary?.totalLaborCost?.toLocaleString() || 0}
             </div>
             <div className="text-sm text-gray-500">
-              {costAnalysis.breakdown?.labor?.percentage || 0}% of total
+              {costAnalysis.summary?.laborPercentage?.toFixed(1) || 0}% of total
             </div>
           </CardContent>
         </Card>
@@ -645,24 +638,24 @@ function CostAnalysis({ data }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              ฿{costAnalysis.breakdown?.material?.amount?.toLocaleString() || 0}
+              ฿{costAnalysis.summary?.totalMaterialCost?.toLocaleString() || 0}
             </div>
             <div className="text-sm text-gray-500">
-              {costAnalysis.breakdown?.material?.percentage || 0}% of total
+              {costAnalysis.summary?.materialPercentage?.toFixed(1) || 0}% of total
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Average per Job</CardTitle>
+            <CardTitle className="text-lg">Budget Utilization</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              ฿{parseFloat(costAnalysis.summary?.averageCostPerJob || 0).toLocaleString()}
+              {costAnalysis.summary?.budgetUtilization?.toFixed(1) || 0}%
             </div>
             <div className="text-sm text-gray-500">
-              Across all projects
+              ฿{costAnalysis.summary?.totalBudget?.toLocaleString() || 0} Budget
             </div>
           </CardContent>
         </Card>
@@ -687,26 +680,6 @@ function CostAnalysis({ data }) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
-
-      {/* Monthly Cost Trends */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Cost Trends</CardTitle>
-          <CardDescription>Cost progression over time</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={monthlyTrends}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => [`฿${value.toLocaleString()}`, '']} />
-              <Area type="monotone" dataKey="labor" stackId="1" stroke="#0088FE" fill="#0088FE" />
-              <Area type="monotone" dataKey="material" stackId="1" stroke="#00C49F" fill="#00C49F" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
     </div>
   )
 }
@@ -719,17 +692,16 @@ function ResourceManagement({ data }) {
     return <div className="text-center py-8">No resource data available</div>
   }
 
-  // แก้ไข: ใช้ resourceAnalysis.utilization แทน resourceAnalysis.analysis.utilization
-  const utilization = resourceAnalysis.utilization || {}
+  const summary = resourceAnalysis.summary || {}
   const workers = resourceAnalysis.workers || []
-  const materials = resourceAnalysis.materials || {}
+  const byJob = resourceAnalysis.byJob || []
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Resource Management</h2>
         <Badge variant="outline">
-          {utilization.totalWorkers || 0} Workers
+          {summary.totalWorkers || 0} Workers
         </Badge>
       </div>
 
@@ -741,7 +713,7 @@ function ResourceManagement({ data }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {utilization.totalWorkers || 0}
+              {summary.totalWorkers || 0}
             </div>
           </CardContent>
         </Card>
@@ -752,7 +724,7 @@ function ResourceManagement({ data }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {utilization.totalHours || 0}
+              {summary.totalHours || 0}
             </div>
           </CardContent>
         </Card>
@@ -763,19 +735,20 @@ function ResourceManagement({ data }) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              {utilization.avgHoursPerWorker || 0}
+              {summary.avgHoursPerWorker?.toFixed(1) || 0}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Top Performer</CardTitle>
+            <CardTitle className="text-lg">Area/Worker/Day</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold text-orange-600">
-              {utilization.topPerformer || 'N/A'}
+            <div className="text-3xl font-bold text-orange-600">
+              {summary.avgAreaPerWorkerPerDay?.toFixed(1) || 0}
             </div>
+            <div className="text-sm text-gray-500">ตร.ม./คน/วัน</div>
           </CardContent>
         </Card>
       </div>
@@ -807,34 +780,6 @@ function ResourceManagement({ data }) {
                   <div className="font-medium">{worker.totalHours}h</div>
                   <div className="text-sm text-gray-500">
                     ฿{worker.totalCost?.toLocaleString()}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Material Usage */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Material Usage</CardTitle>
-          <CardDescription>Material types and costs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {Object.entries(materials).map(([type, material], index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="font-medium">{type}</div>
-                  <div className="text-sm text-gray-500">
-                    {material.items?.length || 0} items
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">฿{material.totalCost?.toLocaleString() || 0}</div>
-                  <div className="text-sm text-gray-500">
-                    Qty: {material.totalQuantity || 0}
                   </div>
                 </div>
               </div>
