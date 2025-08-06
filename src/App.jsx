@@ -15,7 +15,7 @@ import {
 import './App.css'
 
 // API Configuration
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbx-jJEc3smcpBWm1GvFtefyUd_emWj-af5LPnLggRfXtCGn5EbDSBf03rXvenyr_cOeNw/exec'
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxfMaIVLlSEUR1SdPkk7pYJztZ2R1eFepMxaiuyLWHT-43xvwTJGsFE961HIVF_dbVblw/exec'
 
 // Colors for charts
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
