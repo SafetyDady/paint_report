@@ -15,7 +15,7 @@ import {
 import './App.css'
 
 // API Configuration
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxfMaIVLlSEUR1SdPkk7pYJztZ2R1eFepMxaiuyLWHT-43xvwTJGsFE961HIVF_dbVblw/exec'
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyyiliO5BpOcXxxRtTGdj1cS4ETTZGZY_WH0Vj2tGWif7Z715uAKWOf1lc4aYAEittL5w/exec'
 
 // Colors for charts
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
@@ -41,7 +41,11 @@ function App() {
         
         const endpoints = [
           'getOverview',
-          'getProjectAnalysis'
+          'getProjectAnalysis',
+          'getCostAnalysis',
+          'getResourceAnalysis',
+          'getPerformanceMetrics',
+          'getWorkActualAnalysis'
         ]
 
         const promises = endpoints.map(endpoint => 
@@ -54,11 +58,11 @@ function App() {
         
         setData({
           overview: results[0].success ? results[0].overview : null,
-          projectAnalysis: results[1].success ? results[1] : null,
-          costAnalysis: null,
-          resourceAnalysis: null,
-          performanceMetrics: null,
-          workActualAnalysis: null,
+          projectAnalysis: results[1].success ? results[1].analysis : null,
+          costAnalysis: results[2].success ? results[2].analysis : null,
+          resourceAnalysis: results[3].success ? results[3].analysis : null,
+          performanceMetrics: results[4].success ? results[4].metrics : null,
+          workActualAnalysis: results[5].success ? results[5].analysis : null,
           loading: false,
           error: results.some(r => !r.success) ? 'Some data failed to load' : null
         })
